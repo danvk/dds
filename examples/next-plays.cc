@@ -92,20 +92,27 @@ void equals_to_string(int equals, char * res) {
 }
 
 void PrintFut(const futureTricks& fut) {
-  printf("%6s %-6s %-6s %-6s %-6s\n",
-         "card", "suit", "rank", "equals", "score");
-
+  int n = 0;
+  printf("[");
   for (int i = 0; i < fut.cards; i++) {
     char res[15] = "";
-    equals_to_string(fut.equals[i], res);
-    printf("%6d %-6c %-6c %-6s %-6d\n",
-           i,
+    printf("%s\n  {\"suit\": \"%c\", \"rank\": \"%c\", \"score\": %d}",
+           n++ ? "," : "",
            dcardSuit[ fut.suit[i] ],
            dcardRank[ fut.rank[i] ],
-           res,
            fut.score[i]);
+
+    equals_to_string(fut.equals[i], res);
+    for (int j = 0; j < strlen(res); j++) {
+      char rank = res[j];
+      printf("%s\n  {\"suit\": \"%c\", \"rank\": \"%c\", \"score\": %d}",
+             n++ ? "," : "",
+             dcardSuit[ fut.suit[i] ],
+             rank,
+             fut.score[i]);
+    }
   }
-  printf("\n");
+  printf("\n]\n");
 }
 
 
