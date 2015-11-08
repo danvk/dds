@@ -8,6 +8,7 @@
 #include <ctype.h>
 
 #include "../include/dll.h"
+#include "../src/PBN.h"
 
 const char* USAGE = "./next-plays DEAL_PBN <C|D|H|S|N> <N|S|E|W> play1 play2 ...";
 
@@ -22,6 +23,11 @@ const char* USAGE = "./next-plays DEAL_PBN <C|D|H|S|N> <N|S|E|W> play1 play2 ...
 #define EAST     1
 #define SOUTH    2
 #define WEST     3
+
+struct Play {
+  int suit;  // SPADES, HEARTS, DIAMONDS, CLUBS
+  int rank;  // 2-14
+};
 
 int NEXT_PLAYER[] = {EAST, SOUTH, WEST, NORTH};
 
@@ -62,6 +68,49 @@ int parse_player(const char* player) {
 
   bad_player(player);
   return 0;  // unreachable
+}
+
+void bad_play(const char* play) {
+  fprintf(stderr, "Invalid play: '%s' (expected, e.g. 2D, 9C, TH, AS)\n", play);
+  exit(1);
+}
+
+Play parse_play(const char* play) {
+  if (strlen(play) != 2) {
+    bad_play(play);
+  }
+
+  Play p;
+
+  switch (toupper(play[0])) {
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+      p.rank = play[0] - '0';
+      break;
+    case 'T': p.rank = 10; break;
+    case 'J': p.rank = 11; break;
+    case 'Q': p.rank = 12; break;
+    case 'K': p.rank = 13; break;
+    case 'A': p.rank = 14; break;
+    default:
+      bad_play(play);
+  }
+
+  switch (toupper(play[1])) {
+    case 'H': p.suit = HEARTS; break;
+    case 'S': p.suit = HEARTS; break;
+    case 'D': p.suit = DIAMONDS; break;
+    case 'C': p.suit = CLUBS; break;
+    default:
+      bad_play(play);
+  }
+  return p;
 }
 
 
@@ -128,21 +177,51 @@ int main(int argc, char** argv) {
        *declarer_str = argv[3];
 
   int declarer = parse_player(declarer_str);
+  int player = NEXT_PLAYER[declarer];
 
-  dealPBN dlPBN;
+  deal dl;
 
-  dlPBN.trump = parse_trump(suit_str);
-  dlPBN.first = NEXT_PLAYER[declarer];
+  dl.trump = parse_trump(suit_str);
+  dl.first = player;
 
-  strcpy(dlPBN.remainCards, deal_pbn);
+  int res = ConvertFromPBN(deal_pbn, dl.remainCards);
+  if (res != RETURN_NO_FAULT) {
+    char error[80];
+    ErrorMessage(res, error);
+    fprintf(stderr, "ConvertFromPBN failed: %d %s\n", res, error);
+    return 1;
+  }
 
   // previously-played cards on this trick
-  dlPBN.currentTrickSuit[0] = 0;
-  dlPBN.currentTrickRank[0] = 0;
-  dlPBN.currentTrickSuit[1] = 0;
-  dlPBN.currentTrickRank[1] = 0;
-  dlPBN.currentTrickSuit[2] = 0;
-  dlPBN.currentTrickRank[2] = 0;
+  dl.currentTrickSuit[0] = 0;
+  dl.currentTrickRank[0] = 0;
+  dl.currentTrickSuit[1] = 0;
+  dl.currentTrickRank[1] = 0;
+  dl.currentTrickSuit[2] = 0;
+  dl.currentTrickRank[2] = 0;
+
+  Play plays[52];
+  int num_plays = argc - 4;
+  for (int i = 0; i < num_plays; i++) {
+    plays[i] = parse_play(argv[i + 4]);
+  }
+  for (int i = 0; i < num_plays; i++) {
+    const Play& p = plays[i];
+    int cards_in_suit = dl.remainCards[player][p.suit];
+    int card = 1 << p.rank;
+    if ((cards_in_suit & card) == 0) {
+      fprintf(stderr, "Player %d cannot play %s\n", player, argv[i + 4]);
+      exit(1);
+    }
+    dl.remainCards[player][p.suit] -= card;
+    dl.currentTrickSuit[i] = p.suit;
+    dl.currentTrickRank[i] = p.rank;
+    player = NEXT_PLAYER[player];
+  }
+
+  // ... apply the plays to the PBN
+
+  // strcpy(dlPBN.remainCards, deal_pbn);
 
   int target = -1;
   int solutions = 3;
@@ -151,7 +230,7 @@ int main(int argc, char** argv) {
   SetMaxThreads(0);
 
   futureTricks fut;
-  int res = SolveBoardPBN(dlPBN, target, solutions, mode, &fut, 0);
+  res = SolveBoard(dl, target, solutions, mode, &fut, 0);
   if (res != RETURN_NO_FAULT) {
     char error[80];
     ErrorMessage(res, error);
