@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <iostream>
+#include <string>
 
 #include "../include/dll.h"
 #include "../src/PBN.h"
@@ -114,31 +114,6 @@ Play parse_play(const char* play) {
   return p;
 }
 
-char SUITS[] = {'S', 'H', 'D', 'C'};
-std::string card_to_str(const Play& card) {
-  std::string out = "  ";
-  char c;
-  if (card.rank < 10) {
-    c = '0' + card.rank;
-  } else if (card.rank == 10) {
-    c = 'T';
-  } else if (card.rank == 11) {
-    c = 'J';
-  } else if (card.rank == 12) {
-    c = 'Q';
-  } else if (card.rank == 13) {
-    c = 'K';
-  } else if (card.rank == 14) {
-    c = 'A';
-  } else {
-    c = '?';
-  }
-  out[0] = c;
-  out[1] = SUITS[card.suit];
-
-  return out;
-}
-
 
 unsigned short int dbitMapRank[16] =
 {
@@ -166,29 +141,61 @@ void equals_to_string(int equals, char * res) {
   res[p] = 0;
 }
 
-void PrintFut(const futureTricks& fut) {
+std::string OneTrickToJSON(char suit, char rank, int score) {
+  char buf[100];
+  sprintf(buf, "{\"suit\": \"%c\", \"rank\": \"%c\", \"score\": %d}",
+          suit, rank, score);
+  return std::string(buf);
+}
+
+std::string FutureTricksToJSON(const futureTricks& fut) {
   int n = 0;
-  printf("[");
+  std::string out = "[";
   for (int i = 0; i < fut.cards; i++) {
-    char res[15] = "";
-    printf("%s\n  {\"suit\": \"%c\", \"rank\": \"%c\", \"score\": %d}",
-           n++ ? "," : "",
+    if (i) out += ",";
+    out += OneTrickToJSON(
            dcardSuit[ fut.suit[i] ],
            dcardRank[ fut.rank[i] ],
            fut.score[i]);
 
+    char res[15] = "";
     equals_to_string(fut.equals[i], res);
     int len = static_cast<int>(strlen(res));
     for (int j = 0; j < len; j++) {
       char rank = res[j];
-      printf("%s\n  {\"suit\": \"%c\", \"rank\": \"%c\", \"score\": %d}",
-             n++ ? "," : "",
+      out += ",";
+      out += OneTrickToJSON(
              dcardSuit[ fut.suit[i] ],
              rank,
              fut.score[i]);
     }
   }
-  printf("\n]\n");
+  out += "]";
+  return out;
+}
+
+std::string card_to_str(const Play& card) {
+  std::string out = "  ";
+  char c;
+  if (card.rank < 10) {
+    c = '0' + card.rank;
+  } else if (card.rank == 10) {
+    c = 'T';
+  } else if (card.rank == 11) {
+    c = 'J';
+  } else if (card.rank == 12) {
+    c = 'Q';
+  } else if (card.rank == 13) {
+    c = 'K';
+  } else if (card.rank == 14) {
+    c = 'A';
+  } else {
+    c = '?';
+  }
+  out[0] = c;
+  out[1] = dcardSuit[card.suit];
+
+  return out;
 }
 
 // Determine which player won the current trick.
@@ -209,9 +216,9 @@ int determine_winner(deal* dl, int last_suit, int last_rank) {
   };
 
   for (int i = 0; i < 4; i++) {
-    std::cout << card_to_str(plays[i]) << " ";
+    printf("%s ", card_to_str(plays[i]).c_str());
   }
-  std::cout << std::endl;
+  printf("\n");
 
   int led_suit = plays[0].suit;
   int top_suit = led_suit;
@@ -242,17 +249,10 @@ int determine_winner(deal* dl, int last_suit, int last_rank) {
   return winner;
 }
 
+extern "C" {
 
-int main(int argc, char** argv) {
-  if (argc < 4) {
-    fprintf(stderr, "Not enough arguments. Usage:\n\n  %s\n", USAGE);
-    return 1;
-  }
-
-  char *deal_pbn = argv[1],
-       *suit_str = argv[2],
-       *declarer_str = argv[3];
-
+char* solve(char* deal_pbn, char* suit_str, char* declarer_str, int num_plays, Play* plays) {
+  char* out = (char*)malloc(1024);
   int declarer = parse_player(declarer_str);
   int player = NEXT_PLAYER[declarer];
 
@@ -266,7 +266,8 @@ int main(int argc, char** argv) {
     char error[80];
     ErrorMessage(res, error);
     fprintf(stderr, "ConvertFromPBN failed: %d %s\n", res, error);
-    return 1;
+    strcpy(out, "{\"error\": 1}");
+    return out;
   }
 
   // previously-played cards on this trick
@@ -277,19 +278,14 @@ int main(int argc, char** argv) {
   dl.currentTrickSuit[2] = 0;
   dl.currentTrickRank[2] = 0;
 
-  Play plays[52];
-  int num_plays = argc - 4;
   int ew_tricks = 0,
       ns_tricks = 0;
-  for (int i = 0; i < num_plays; i++) {
-    plays[i] = parse_play(argv[i + 4]);
-  }
   for (int i = 0; i < num_plays; i++) {
     const Play& p = plays[i];
     unsigned int cards_in_suit = dl.remainCards[player][p.suit];
     unsigned int card = 1 << p.rank;
     if ((cards_in_suit & card) == 0) {
-      fprintf(stderr, "Player %d cannot play %s\n", player, argv[i + 4]);
+      fprintf(stderr, "Player %d cannot play %s\n", player, card_to_str(p).c_str());
       exit(1);
     }
     dl.remainCards[player][p.suit] -= card;
@@ -308,32 +304,11 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ... apply the plays to the PBN
-
-  // strcpy(dlPBN.remainCards, deal_pbn);
-
   int target = -1;
   int solutions = 3;
   int mode = 0;
 
   SetMaxThreads(0);
-
-  /*
-  printf("dl.first: %d\n", dl.first);
-  printf("dl.trump: %d\n", dl.trump);
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4; j++) {
-      printf("dl.remainCards[%d][%d]: 0x%x\n", i, j, dl.remainCards[i][j]);
-    }
-  }
-  for (int i = 0; i < 3; i++) {
-    printf("dl.currentTrickSuit[%d]: %d\n", i, dl.currentTrickSuit[i]);
-    printf("dl.currentTrickRank[%d]: %d\n", i, dl.currentTrickRank[i]);
-  }
-  */
-
-  printf("ns_tricks: %d\n", ns_tricks);
-  printf("ew_tricks: %d\n", ew_tricks);
 
   futureTricks fut;
   res = SolveBoard(dl, target, solutions, mode, &fut, 0);
@@ -341,12 +316,16 @@ int main(int argc, char** argv) {
     char error[80];
     ErrorMessage(res, error);
     fprintf(stderr, "SolveBoard failed: %d %s\n", res, error);
-    return 1;
+    strcpy(out, "{\"error\": 1}");
+    return out;
   }
 
-  // PrintPBNHand
+  printf("ns_tricks: %d\n", ns_tricks);
+  printf("ew_tricks: %d\n", ew_tricks);
 
-  PrintFut(fut);
+  std::string json = FutureTricksToJSON(fut);
+  strcpy(out, json.c_str());
+  return out;
+}
 
-  return 0;
 }
