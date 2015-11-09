@@ -2,6 +2,7 @@
  * Usage:
  *   ./next-plays DEAL_PBN <C|D|H|S|N> <N|S|E|W> play1 play2 ...
  */
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -169,20 +170,15 @@ void equals_to_string(int equals, char * res) {
 }
 
 std::string OneTrickToJSON(char suit, char rank, int score) {
-  char buf[100];
-  sprintf(buf, "{\"suit\": \"%c\", \"rank\": \"%c\", \"score\": %d}",
-          suit, rank, score);
-  return std::string(buf);
+  return StringPrintf("{\"suit\": \"%c\", \"rank\": \"%c\", \"score\": %d}",
+                      suit, rank, score);
 }
 
 std::string FutureTricksToJSON(const futureTricks& fut, int player, int ns_tricks, int ew_tricks) {
   int n = 0;
-  std::string player_str(1, dcardHand[player]);
-  std::string out = "{\"player\": \"" + player_str + "\","
-                     "\"tricks\": {"
-                      "\"ns\": " + std::to_string(ns_tricks) +
-                    ", \"ew\": " + std::to_string(ew_tricks) +
-                    "}, \"plays\":[";
+  std::string out = StringPrintf(
+      "{\"player\": \"%c\", \"tricks\": {\"ns\": %d, \"ew\": %d}, \"plays\":[",
+      dcardHand[player], ns_tricks, ew_tricks);
   for (int i = 0; i < fut.cards; i++) {
     if (i) out += ",";
     out += OneTrickToJSON(
