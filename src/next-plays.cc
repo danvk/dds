@@ -148,9 +148,14 @@ std::string OneTrickToJSON(char suit, char rank, int score) {
   return std::string(buf);
 }
 
-std::string FutureTricksToJSON(const futureTricks& fut) {
+std::string FutureTricksToJSON(const futureTricks& fut, int player, int ns_tricks, int ew_tricks) {
   int n = 0;
-  std::string out = "[";
+  std::string player_str(1, dcardHand[player]);
+  std::string out = "{\"player\": \"" + player_str + "\","
+                     "\"tricks\": {"
+                      "\"ns\": " + std::to_string(ns_tricks) +
+                    ", \"ew\": " + std::to_string(ew_tricks) +
+                    "}, \"plays\":[";
   for (int i = 0; i < fut.cards; i++) {
     if (i) out += ",";
     out += OneTrickToJSON(
@@ -170,7 +175,7 @@ std::string FutureTricksToJSON(const futureTricks& fut) {
              fut.score[i]);
     }
   }
-  out += "]";
+  out += "]}";
   return out;
 }
 
@@ -214,11 +219,6 @@ int determine_winner(deal* dl, int last_suit, int last_rank) {
     {dl->currentTrickSuit[2], dl->currentTrickRank[2]},
     {last_suit, last_rank}
   };
-
-  for (int i = 0; i < 4; i++) {
-    printf("%s ", card_to_str(plays[i]).c_str());
-  }
-  printf("\n");
 
   int led_suit = plays[0].suit;
   int top_suit = led_suit;
@@ -306,7 +306,7 @@ char* solve(char* deal_pbn, char* suit_str, char* declarer_str, int num_plays, P
 
   int target = -1;
   int solutions = 3;
-  int mode = 0;
+  int mode = 2;
 
   SetMaxThreads(0);
 
@@ -320,10 +320,7 @@ char* solve(char* deal_pbn, char* suit_str, char* declarer_str, int num_plays, P
     return out;
   }
 
-  printf("ns_tricks: %d\n", ns_tricks);
-  printf("ew_tricks: %d\n", ew_tricks);
-
-  std::string json = FutureTricksToJSON(fut);
+  std::string json = FutureTricksToJSON(fut, player, ns_tricks, ew_tricks);
   strcpy(out, json.c_str());
   return out;
 }

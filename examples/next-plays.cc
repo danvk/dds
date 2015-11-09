@@ -314,7 +314,7 @@ int main(int argc, char** argv) {
 
   int target = -1;
   int solutions = 3;
-  int mode = 0;
+  int mode = 2;
 
   SetMaxThreads(0);
 
