@@ -169,9 +169,21 @@ void equals_to_string(int equals, char * res) {
   res[p] = 0;
 }
 
-std::string OneTrickToJSON(char suit, char rank, int score) {
-  return StringPrintf("{\"suit\": \"%c\", \"rank\": \"%c\", \"score\": %d}",
-                      suit, rank, score);
+std::string OneTrickToJSON(char suit, char rank, int equals, int score) {
+  int m = equals >> 2;
+  int num_equal = 0;
+  std::string eqstr;
+  for (int i = 15; i >= 2; i--)
+  {
+    if (m & static_cast<int>(dbitMapRank[i])) {
+      if (num_equal) eqstr += ",";
+      eqstr += StringPrintf("\"%c\"", static_cast<char>(dcardRank[i]));
+      num_equal++;
+    }
+  }
+
+  return StringPrintf("{\"suit\": \"%c\", \"rank\": \"%c\", \"equals\": [%s], \"score\": %d}",
+                      suit, rank, eqstr.c_str(), score);
 }
 
 std::string FutureTricksToJSON(const futureTricks& fut, int player, int ns_tricks, int ew_tricks) {
@@ -184,19 +196,8 @@ std::string FutureTricksToJSON(const futureTricks& fut, int player, int ns_trick
     out += OneTrickToJSON(
            dcardSuit[ fut.suit[i] ],
            dcardRank[ fut.rank[i] ],
+           fut.equals[i],
            fut.score[i]);
-
-    char res[15] = "";
-    equals_to_string(fut.equals[i], res);
-    int len = static_cast<int>(strlen(res));
-    for (int j = 0; j < len; j++) {
-      char rank = res[j];
-      out += ",";
-      out += OneTrickToJSON(
-             dcardSuit[ fut.suit[i] ],
-             rank,
-             fut.score[i]);
-    }
   }
   out += "]}";
   return out;
