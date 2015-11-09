@@ -10,3 +10,5 @@ test/[Mm]akefile
 examples/[Mm]akefile
 test/dtest
 test/itest
+out.*
+next-plays
