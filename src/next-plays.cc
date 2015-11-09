@@ -32,6 +32,33 @@ struct Play {
 
 int NEXT_PLAYER[] = {EAST, SOUTH, WEST, NORTH};
 
+std::string StringPrintf(const char* format, ...) {
+  int buf_size = 256;
+  char* buffer = static_cast<char*>(malloc(static_cast<size_t>(buf_size)));
+  va_list args;
+  va_start(args, format);
+  int ret = vsnprintf(buffer, static_cast<size_t>(buf_size), format, args);
+  va_end(args);
+  if (ret < 0) {
+    return "";
+  } else if (ret >= buf_size) {
+    free(buffer);
+    buf_size = ret + 1;
+    printf("buf_size: %d\n", buf_size);
+    buffer = static_cast<char*>(malloc(static_cast<size_t>(buf_size)));
+    va_start(args, format);
+    ret = vsnprintf(buffer, static_cast<size_t>(buf_size), format, args);
+    va_end(args);
+    if (ret >= buf_size) {
+      return "";
+    }
+  }
+
+  std::string out(buffer);
+  free(buffer);
+  return out;
+}
+
 void bad_trump(const char* trump) {
   fprintf(stderr, "Invalid trump: '%s' (expected N, S, H, D, C)\n", trump);
   exit(1);

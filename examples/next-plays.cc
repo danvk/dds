@@ -32,6 +32,33 @@ struct Play {
 
 int NEXT_PLAYER[] = {EAST, SOUTH, WEST, NORTH};
 
+std::string StringPrintf(const char* format, ...) {
+  int buf_size = 256;
+  char* buffer = static_cast<char*>(malloc(static_cast<size_t>(buf_size)));
+  va_list args;
+  va_start(args, format);
+  int ret = vsnprintf(buffer, static_cast<size_t>(buf_size), format, args);
+  va_end(args);
+  if (ret < 0) {
+    return "";
+  } else if (ret >= buf_size) {
+    free(buffer);
+    buf_size = ret + 1;
+    printf("buf_size: %d\n", buf_size);
+    buffer = static_cast<char*>(malloc(static_cast<size_t>(buf_size)));
+    va_start(args, format);
+    ret = vsnprintf(buffer, static_cast<size_t>(buf_size), format, args);
+    va_end(args);
+    if (ret >= buf_size) {
+      return "";
+    }
+  }
+
+  std::string out(buffer);
+  free(buffer);
+  return out;
+}
+
 void bad_trump(const char* trump) {
   fprintf(stderr, "Invalid trump: '%s' (expected N, S, H, D, C)\n", trump);
   exit(1);
@@ -317,23 +344,6 @@ int main(int argc, char** argv) {
   int mode = 2;
 
   SetMaxThreads(0);
-
-  /*
-  printf("dl.first: %d\n", dl.first);
-  printf("dl.trump: %d\n", dl.trump);
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4; j++) {
-      printf("dl.remainCards[%d][%d]: 0x%x\n", i, j, dl.remainCards[i][j]);
-    }
-  }
-  for (int i = 0; i < 3; i++) {
-    printf("dl.currentTrickSuit[%d]: %d\n", i, dl.currentTrickSuit[i]);
-    printf("dl.currentTrickRank[%d]: %d\n", i, dl.currentTrickRank[i]);
-  }
-  */
-
-  printf("ns_tricks: %d\n", ns_tricks);
-  printf("ew_tricks: %d\n", ew_tricks);
 
   futureTricks fut;
   res = SolveBoard(dl, target, solutions, mode, &fut, 0);
